@@ -195,7 +195,21 @@ private fun ThemeCardItem(
                         color = MaterialTheme.colorScheme.onSurface
                     )
 
-                    if (themeMode == AppThemeMode.AMOLED_PITCH_BLACK) {
+                    if (themeMode == AppThemeMode.DYNAMIC_MATERIAL_YOU) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = "DEFAULT",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.primary,
+                                fontSize = 9.sp
+                            )
+                        }
+                    } else if (themeMode == AppThemeMode.AMOLED_PITCH_BLACK) {
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(6.dp))

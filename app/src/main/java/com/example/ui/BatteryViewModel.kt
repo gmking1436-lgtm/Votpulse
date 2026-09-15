@@ -13,7 +13,10 @@ import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.audio.SoundHelper
+import com.example.audio.VoiceAlertManager
+import com.example.data.ChargingSessionTracker
 import com.example.data.model.BatteryInfoModel
+import com.example.data.model.ChargingSessionPoint
 import com.example.data.preferences.BatteryPreferences
 import com.example.service.BatteryProtectionManager
 import com.example.service.ChargingPowerTelemetry
@@ -72,7 +75,7 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
-            initialValue = AppThemeMode.AMOLED_PITCH_BLACK
+            initialValue = AppThemeMode.DYNAMIC_MATERIAL_YOU
         )
 
     fun setThemeMode(mode: AppThemeMode) {
@@ -127,11 +130,46 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
             initialValue = null
         )
 
+    val isProtectionCapEnabled: StateFlow<Boolean> = batteryPreferences.isProtectionCapEnabled
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = true
+        )
+
+    val chargeLimitTarget: StateFlow<Int> = batteryPreferences.chargeLimitTarget
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = 80
+        )
+
     val targetChargePercentage: StateFlow<Int> = batteryPreferences.targetChargePercentage
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = 80
+        )
+
+    val isLowBatteryAlertEnabled: StateFlow<Boolean> = batteryPreferences.isLowBatteryAlertEnabled
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = true
+        )
+
+    val lowBatteryThreshold: StateFlow<Int> = batteryPreferences.lowBatteryThreshold
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = 20
+        )
+
+    val isOvernightTimerAlertEnabled: StateFlow<Boolean> = batteryPreferences.isOvernightTimerAlertEnabled
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = true
         )
 
     val isOverheatAlertEnabled: StateFlow<Boolean> = batteryPreferences.isOverheatAlertEnabled
@@ -147,6 +185,16 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = 42.0f
         )
+
+    val isVoiceAnnouncementEnabled: StateFlow<Boolean> = batteryPreferences.isVoiceAnnouncementEnabled
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = false
+        )
+
+    val chargingSessionPoints: StateFlow<List<ChargingSessionPoint>> =
+        ChargingSessionTracker.getInstance().sessionPoints
 
     // ========================================================================
     // Unified Audio Preview State
@@ -282,12 +330,19 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
      */
     val chargingTelemetry: StateFlow<ChargingPowerTelemetry> = batteryRawFlow
         .map { raw ->
-            BatteryProtectionManager.calculateChargingPower(
+            val telemetry = BatteryProtectionManager.calculateChargingPower(
                 context = getApplication<Application>().applicationContext,
                 voltageMilliVolts = raw.voltageMilliVolts,
                 batteryPercentage = raw.percentage,
                 isCharging = raw.isCharging
             )
+            ChargingSessionTracker.getInstance().recordTelemetry(
+                percentage = raw.percentage,
+                wattage = telemetry.watts,
+                temperatureCelsius = raw.temperatureCelsius,
+                isCharging = raw.isCharging
+            )
+            telemetry
         }
         .stateIn(
             scope = viewModelScope,
@@ -305,6 +360,55 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
     // ========================================================================
     // Settings Mutators
     // ========================================================================
+
+    fun setVoiceAnnouncementEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            batteryPreferences.setVoiceAnnouncementEnabled(enabled)
+            if (enabled) {
+                val current = batteryState.value
+                val watts = chargingTelemetry.value.watts
+                VoiceAlertManager.getInstance(getApplication<Application>().applicationContext)
+                    .announcePluggedIn(current.percentage, watts)
+            }
+        }
+    }
+
+    fun testVoiceAnnouncement() {
+        val current = batteryState.value
+        val watts = chargingTelemetry.value.watts
+        VoiceAlertManager.getInstance(getApplication<Application>().applicationContext)
+            .announcePluggedIn(current.percentage, watts)
+    }
+
+    fun setProtectionCapEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            batteryPreferences.setProtectionCapEnabled(enabled)
+        }
+    }
+
+    fun setChargeLimitTarget(target: Int) {
+        viewModelScope.launch {
+            batteryPreferences.setChargeLimitTarget(target)
+        }
+    }
+
+    fun setLowBatteryAlertEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            batteryPreferences.setLowBatteryAlertEnabled(enabled)
+        }
+    }
+
+    fun setLowBatteryThreshold(threshold: Int) {
+        viewModelScope.launch {
+            batteryPreferences.setLowBatteryThreshold(threshold)
+        }
+    }
+
+    fun setOvernightTimerAlertEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            batteryPreferences.setOvernightTimerAlertEnabled(enabled)
+        }
+    }
 
     fun setTargetChargePercentage(percentage: Int) {
         viewModelScope.launch {

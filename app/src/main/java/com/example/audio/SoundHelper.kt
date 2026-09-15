@@ -118,6 +118,26 @@ class SoundHelper(context: Context) {
     }
 
     /**
+     * Plays a gentle recurring chime for prolonged charging beyond user target.
+     */
+    fun playGentleReminderChime() {
+        playShortTone(
+            customUriString = null,
+            fallbackType = RingtoneManager.TYPE_NOTIFICATION
+        )
+    }
+
+    /**
+     * Plays an audible alert chime when battery drops below low-battery threshold.
+     */
+    fun playLowBatteryAlert() {
+        playShortTone(
+            customUriString = null,
+            fallbackType = RingtoneManager.TYPE_NOTIFICATION
+        )
+    }
+
+    /**
      * Attempts loading and playing the given tone through [SoundPool].
      * Falls back safely to default system tones if the custom URI is missing or inaccessible.
      */

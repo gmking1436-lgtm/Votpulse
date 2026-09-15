@@ -60,6 +60,32 @@
             </intent-filter>
         </receiver>
 
+        <!-- LowBatteryReceiver for critical low battery warnings before deep discharge -->
+        <receiver
+            android:name=".receiver.LowBatteryReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BATTERY_LOW" />
+                <action android:name="android.intent.action.BATTERY_OKAY" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Jetpack Glance Material 3 Battery Widget Receiver -->
+        <receiver
+            android:name=".widget.BatteryGlanceWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="android.intent.action.BATTERY_CHANGED" />
+                <action android:name="android.intent.action.ACTION_POWER_CONNECTED" />
+                <action android:name="android.intent.action.ACTION_POWER_DISCONNECTED" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/battery_glance_widget_info" />
+        </receiver>
+
         <!-- Foreground Service for persistent charging cycle monitoring (Android 14+ compliant) -->
         <service
             android:name=".service.BatteryChargingService"

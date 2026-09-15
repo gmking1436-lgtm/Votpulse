@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.ElectricMeter
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Thermostat
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -52,6 +53,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import com.example.display.DynamicDisplayRefreshEffect
 import com.example.display.rememberDynamicRefreshRateState
 import com.example.display.trackUserInteraction
+import com.example.ui.components.ChargingAnalyticsChart
 import com.example.ui.components.LiquidWaveBatteryGauge
 import com.example.ui.components.ProtectionSettingsCard
 import com.example.ui.components.ThemeSelectorBottomSheet
@@ -105,6 +107,7 @@ import com.example.ui.theme.VoltRed
 @Composable
 fun BatteryDashboardScreen(
     modifier: Modifier = Modifier,
+    onNavigateToProtection: () -> Unit = {},
     viewModel: BatteryViewModel = viewModel()
 ) {
     val batteryState by viewModel.batteryState.collectAsStateWithLifecycle()
@@ -117,10 +120,16 @@ fun BatteryDashboardScreen(
     val currentPlayingPreview by viewModel.currentPlayingPreview.collectAsStateWithLifecycle()
     val currentThemeMode by viewModel.selectedThemeMode.collectAsStateWithLifecycle()
 
+    val isProtectionCapEnabled by viewModel.isProtectionCapEnabled.collectAsStateWithLifecycle()
     val targetPercentage by viewModel.targetChargePercentage.collectAsStateWithLifecycle()
+    val isLowBatteryAlertEnabled by viewModel.isLowBatteryAlertEnabled.collectAsStateWithLifecycle()
+    val lowBatteryThreshold by viewModel.lowBatteryThreshold.collectAsStateWithLifecycle()
+    val isOvernightTimerAlertEnabled by viewModel.isOvernightTimerAlertEnabled.collectAsStateWithLifecycle()
     val isOverheatAlertEnabled by viewModel.isOverheatAlertEnabled.collectAsStateWithLifecycle()
     val overheatThresholdCelsius by viewModel.overheatTemperatureThreshold.collectAsStateWithLifecycle()
     val chargingTelemetry by viewModel.chargingTelemetry.collectAsStateWithLifecycle()
+    val chargingSessionPoints by viewModel.chargingSessionPoints.collectAsStateWithLifecycle()
+    val isVoiceAnnouncementEnabled by viewModel.isVoiceAnnouncementEnabled.collectAsStateWithLifecycle()
 
     var showThemeSelector by remember { mutableStateOf(false) }
 
@@ -214,6 +223,16 @@ fun BatteryDashboardScreen(
                 },
                 actions = {
                     IconButton(
+                        onClick = onNavigateToProtection,
+                        modifier = Modifier.testTag("protection_suite_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Shield,
+                            contentDescription = "Battery Protection Suite",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    IconButton(
                         onClick = { showThemeSelector = true },
                         modifier = Modifier.testTag("theme_selector_button")
                     ) {
@@ -262,10 +281,29 @@ fun BatteryDashboardScreen(
             }
 
             item {
+                // Custom Canvas Charging Analytics Curve & Protection Graph
+                ChargingAnalyticsChart(
+                    dataPoints = chargingSessionPoints,
+                    targetPercentage = targetPercentage,
+                    isCharging = batteryState.isCharging,
+                    currentWattage = chargingTelemetry.watts,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            item {
                 // Advanced Battery Longevity and Hardware Protection Card
                 ProtectionSettingsCard(
+                    isProtectionCapEnabled = isProtectionCapEnabled,
+                    onProtectionCapEnabledChange = viewModel::setProtectionCapEnabled,
                     targetPercentage = targetPercentage,
-                    onTargetPercentageChange = viewModel::setTargetChargePercentage,
+                    onTargetPercentageChange = viewModel::setChargeLimitTarget,
+                    isLowBatteryAlertEnabled = isLowBatteryAlertEnabled,
+                    onLowBatteryAlertEnabledChange = viewModel::setLowBatteryAlertEnabled,
+                    lowBatteryThreshold = lowBatteryThreshold,
+                    onLowBatteryThresholdChange = viewModel::setLowBatteryThreshold,
+                    isOvernightTimerAlertEnabled = isOvernightTimerAlertEnabled,
+                    onOvernightTimerAlertEnabledChange = viewModel::setOvernightTimerAlertEnabled,
                     isOverheatAlertEnabled = isOverheatAlertEnabled,
                     onOverheatAlertEnabledChange = viewModel::setOverheatAlertEnabled,
                     overheatThresholdCelsius = overheatThresholdCelsius,
@@ -292,6 +330,9 @@ fun BatteryDashboardScreen(
                     onFullChargeEnabledChange = viewModel::setFullChargeAlertEnabled,
                     fullChargeUri = fullChargeUri,
                     onFullChargeUriSelected = { uri: Uri? -> viewModel.setFullChargeSoundUri(uri) },
+                    isVoiceAnnouncementEnabled = isVoiceAnnouncementEnabled,
+                    onVoiceAnnouncementEnabledChange = viewModel::setVoiceAnnouncementEnabled,
+                    onTestVoiceAnnouncement = viewModel::testVoiceAnnouncement,
                     currentPlayingPreview = currentPlayingPreview,
                     onTogglePreview = viewModel::togglePreview,
                     onStopPreview = viewModel::stopPreview,

@@ -32,7 +32,11 @@ class AlarmDismissReceiver : BroadcastReceiver() {
         Log.d(TAG, "Alarm dismissal requested with action: $action")
 
         val appContext = context.applicationContext
-        val pendingResult = goAsync()
+        val pendingResult = try {
+            goAsync()
+        } catch (e: Exception) {
+            null
+        }
 
         CoroutineScope(Dispatchers.Main.immediate).launch {
             try {
@@ -45,6 +49,8 @@ class AlarmDismissReceiver : BroadcastReceiver() {
                     appContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
                 notificationManager.cancel(BatteryChargingService.FULL_CHARGE_NOTIFICATION_ID)
                 notificationManager.cancel(BatteryChargingService.OVERHEAT_NOTIFICATION_ID)
+                notificationManager.cancel(BatteryChargingService.PROLONGED_CHARGING_NOTIFICATION_ID)
+                notificationManager.cancel(LowBatteryReceiver.LOW_BATTERY_NOTIFICATION_ID)
                 notificationManager.cancel(BatteryTriggerReceiver.NOTIFICATION_ID)
 
                 // 3. Reset internal trigger state
@@ -54,7 +60,11 @@ class AlarmDismissReceiver : BroadcastReceiver() {
             } catch (e: Exception) {
                 Log.e(TAG, "Error dismissing full-charge alarm", e)
             } finally {
-                pendingResult.finish()
+                try {
+                    pendingResult?.finish()
+                } catch (e: Exception) {
+                    Log.w(TAG, "Error finishing pendingResult", e)
+                }
             }
         }
     }

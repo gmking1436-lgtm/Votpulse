@@ -25,6 +25,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccessTime
+import androidx.compose.material.icons.filled.BatteryAlert
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Info
@@ -73,19 +75,35 @@ import kotlin.math.roundToInt
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ProtectionSettingsCard(
-    targetPercentage: Int,
-    onTargetPercentageChange: (Int) -> Unit,
-    isOverheatAlertEnabled: Boolean,
-    onOverheatAlertEnabledChange: (Boolean) -> Unit,
-    overheatThresholdCelsius: Float,
-    onOverheatThresholdChange: (Float) -> Unit,
-    currentTemperatureCelsius: Float,
-    telemetry: ChargingPowerTelemetry,
-    batteryHealth: String,
+    isProtectionCapEnabled: Boolean = true,
+    onProtectionCapEnabledChange: (Boolean) -> Unit = {},
+    targetPercentage: Int = 80,
+    onTargetPercentageChange: (Int) -> Unit = {},
+    isLowBatteryAlertEnabled: Boolean = true,
+    onLowBatteryAlertEnabledChange: (Boolean) -> Unit = {},
+    lowBatteryThreshold: Int = 20,
+    onLowBatteryThresholdChange: (Int) -> Unit = {},
+    isOvernightTimerAlertEnabled: Boolean = true,
+    onOvernightTimerAlertEnabledChange: (Boolean) -> Unit = {},
+    isOverheatAlertEnabled: Boolean = true,
+    onOverheatAlertEnabledChange: (Boolean) -> Unit = {},
+    overheatThresholdCelsius: Float = 42.0f,
+    onOverheatThresholdChange: (Float) -> Unit = {},
+    currentTemperatureCelsius: Float = 25.0f,
+    telemetry: ChargingPowerTelemetry = ChargingPowerTelemetry(
+        voltageMilliVolts = 4100,
+        currentMicroAmps = 0,
+        currentMilliAmps = 0,
+        watts = 0.0f,
+        speedCategory = ChargingSpeedCategory.DISCHARGING,
+        isHardwareReported = false
+    ),
+    batteryHealth: String = "Good",
     modifier: Modifier = Modifier
 ) {
-    val snapMarks = listOf(80, 85, 90, 95, 100)
+    val snapMarks = listOf(75, 80, 85, 90, 95, 100)
     val temperatureThresholds = listOf(40.0f, 42.0f, 45.0f)
+    val lowBatteryMarks = listOf(15, 20, 25)
 
     Card(
         modifier = modifier
@@ -209,7 +227,7 @@ fun ProtectionSettingsCard(
             )
 
             // ====================================================================
-            // SECTION 2: Custom Alarm Target Slider (80% - 100%)
+            // SECTION 2: Battery Protection Cap & Target Slider (75% - 100%)
             // ====================================================================
             Column(
                 modifier = Modifier.fillMaxWidth(),
@@ -220,117 +238,146 @@ fun ProtectionSettingsCard(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Longevity Charge Target",
+                            text = "Battery Protection Cap",
                             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "Triggers alarm when reaching target percentage",
+                            text = "Limits high-voltage stress by alerting at target level",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
 
-                    // Target pill badge
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                        modifier = Modifier.testTag("target_percentage_badge")
-                    ) {
-                        Text(
-                            text = "$targetPercentage%",
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                fontFamily = FontFamily.Monospace
-                            ),
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                        )
-                    }
+                    LowLatencySwitch(
+                        checked = isProtectionCapEnabled,
+                        onCheckedChange = onProtectionCapEnabledChange,
+                        modifier = Modifier.testTag("protection_cap_switch")
+                    )
                 }
 
-                // Snap Marks Pill Selector
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                AnimatedVisibility(
+                    visible = isProtectionCapEnabled,
+                    enter = fadeIn() + expandVertically(),
+                    exit = fadeOut() + shrinkVertically()
                 ) {
-                    snapMarks.forEach { mark ->
-                        val isSelected = targetPercentage == mark
-                        val bgColor by animateColorAsState(
-                            targetValue = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
-                            animationSpec = tween(200),
-                            label = "markBg"
-                        )
-                        val textColor by animateColorAsState(
-                            targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                            animationSpec = tween(200),
-                            label = "markText"
-                        )
-
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .padding(horizontal = 2.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(bgColor)
-                                .border(
-                                    width = 1.dp,
-                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
-                                    shape = RoundedCornerShape(8.dp)
-                                )
-                                .instantTap(hapticType = InstantHapticType.TICK) {
-                                    onTargetPercentageChange(mark)
-                                }
-                                .padding(vertical = 6.dp),
-                            contentAlignment = Alignment.Center
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "$mark%",
-                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                color = textColor
+                                text = "Target Limit",
+                                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+
+                            // Target pill badge
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                                modifier = Modifier.testTag("target_percentage_badge")
+                            ) {
+                                Text(
+                                    text = "$targetPercentage%",
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        fontFamily = FontFamily.Monospace
+                                    ),
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                )
+                            }
+                        }
+
+                        // Snap Marks Pill Selector (75, 80, 85, 90, 95, 100)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            snapMarks.forEach { mark ->
+                                val isSelected = targetPercentage == mark
+                                val bgColor by animateColorAsState(
+                                    targetValue = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
+                                    animationSpec = tween(200),
+                                    label = "markBg"
+                                )
+                                val textColor by animateColorAsState(
+                                    targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    animationSpec = tween(200),
+                                    label = "markText"
+                                )
+
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .padding(horizontal = 2.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(bgColor)
+                                        .border(
+                                            width = 1.dp,
+                                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+                                            shape = RoundedCornerShape(8.dp)
+                                        )
+                                        .instantTap(hapticType = InstantHapticType.TICK) {
+                                            onTargetPercentageChange(mark)
+                                        }
+                                        .padding(vertical = 6.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "$mark%",
+                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                        color = textColor
+                                    )
+                                }
+                            }
+                        }
+
+                        // High-Touch Sampling Rate Zero-Jank Snap Slider (75 - 100)
+                        LowLatencySnapSlider(
+                            value = targetPercentage,
+                            onValueChange = onTargetPercentageChange,
+                            minValue = 75,
+                            maxValue = 100,
+                            stepInterval = 5,
+                            testTag = "target_percentage_slider",
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        // Battery longevity tip
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f))
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Info,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Text(
+                                text = if (targetPercentage <= 85) {
+                                    "Setting target to $targetPercentage% preserves cathode integrity, extending cycle lifespan up to 2.5×."
+                                } else {
+                                    "Higher charging targets prioritize maximum single-charge runtime over long-term battery cell health."
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
-                }
-
-                // High-Touch Sampling Rate Zero-Jank Snap Slider
-                LowLatencySnapSlider(
-                    value = targetPercentage,
-                    onValueChange = onTargetPercentageChange,
-                    minValue = 80,
-                    maxValue = 100,
-                    stepInterval = 5,
-                    testTag = "target_percentage_slider",
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                // Battery longevity tip
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f))
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Info,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Text(
-                        text = if (targetPercentage <= 85) {
-                            "Setting target to $targetPercentage% preserves cathode integrity, extending cycle lifespan up to 2.5×."
-                        } else {
-                            "Higher charging targets prioritize maximum single-charge runtime over long-term battery cell health."
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                 }
             }
 
@@ -482,6 +529,170 @@ fun ProtectionSettingsCard(
                                         color = if (isSelected) Color(0xFFFF5252) else MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
+                            }
+                        }
+                    }
+                }
+            }
+
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f)
+            )
+
+            // ====================================================================
+            // SECTION 4: Overnight Prolonged Charging Reminder
+            // ====================================================================
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(34.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.AccessTime,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    Column {
+                        Text(
+                            text = "Overnight Charging Reminder",
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Gentle chime if connected 30+ mins after target",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                LowLatencySwitch(
+                    checked = isOvernightTimerAlertEnabled,
+                    onCheckedChange = onOvernightTimerAlertEnabledChange,
+                    modifier = Modifier.testTag("overnight_timer_switch")
+                )
+            }
+
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f)
+            )
+
+            // ====================================================================
+            // SECTION 5: Low Battery Protection Alert
+            // ====================================================================
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color(0xFFFFB300).copy(alpha = 0.15f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.BatteryAlert,
+                                contentDescription = null,
+                                tint = Color(0xFFFFB300),
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        Column {
+                            Text(
+                                text = "Low Battery Protection Alert",
+                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "Alerts early to avoid deep cathode discharge",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    LowLatencySwitch(
+                        checked = isLowBatteryAlertEnabled,
+                        onCheckedChange = onLowBatteryAlertEnabledChange,
+                        modifier = Modifier.testTag("low_battery_alert_switch"),
+                        checkedThumbColor = Color(0xFFFFB300),
+                        checkedTrackColor = Color(0xFFFFB300).copy(alpha = 0.35f)
+                    )
+                }
+
+                AnimatedVisibility(
+                    visible = isLowBatteryAlertEnabled,
+                    enter = fadeIn() + expandVertically(),
+                    exit = fadeOut() + shrinkVertically()
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Threshold:",
+                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        lowBatteryMarks.forEach { threshold ->
+                            val isSelected = lowBatteryThreshold == threshold
+                            val chipBg by animateColorAsState(
+                                targetValue = if (isSelected) Color(0xFFFFB300).copy(alpha = 0.2f) else MaterialTheme.colorScheme.surface,
+                                animationSpec = tween(200),
+                                label = "lowBatChipBg"
+                            )
+                            val chipBorderColor by animateColorAsState(
+                                targetValue = if (isSelected) Color(0xFFFFB300) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+                                animationSpec = tween(200),
+                                label = "lowBatChipBorder"
+                            )
+
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(chipBg)
+                                    .border(1.dp, chipBorderColor, RoundedCornerShape(8.dp))
+                                    .instantTap(hapticType = InstantHapticType.TICK) {
+                                        onLowBatteryThresholdChange(threshold)
+                                    }
+                                    .padding(vertical = 8.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "$threshold%",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                    ),
+                                    color = if (isSelected) Color(0xFFFFB300) else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
                         }
                     }

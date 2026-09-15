@@ -13,4 +13,26 @@
     <string name="battery_opt_dialog_desc">VoltPulse requires exemption from Android Battery Optimization to reliably trigger connected/disconnected tones and the 100% alarm while the screen is off or in Doze mode.</string>
     <string name="battery_opt_allow">Allow Exemption</string>
     <string name="battery_opt_later">Later</string>
+
+    <!-- Widget Strings -->
+    <string name="widget_name">VoltPulse Battery</string>
+    <string name="widget_description">Real-time battery percentage, live wattage, and thermals with zero idle drain.</string>
+
+    <!-- Voice Announcements -->
+    <string name="voice_announcements_title">Voice Announcements</string>
+    <string name="voice_announcements_desc">Read battery percentage and power dynamically via Text-to-Speech on charging events.</string>
+
+    <!-- Protection & Safety Alert Strings -->
+    <string name="target_charge_reached_title">Target Charge Reached (%1$d%%)</string>
+    <string name="target_charge_reached_message">Target Charge Reached: Unplug to protect battery</string>
+    <string name="overheat_alert_title">⚠️ Battery Overheat Warning (%1$s)</string>
+    <string name="overheat_alert_message">Battery temperature reached %1$s. Disconnect charger immediately to prevent damage.</string>
+    <string name="prolonged_charging_title">Prolonged Charging Alert</string>
+    <string name="prolonged_charging_message">Device connected 30 minutes past target (%1$d%%). Unplug to protect battery longevity.</string>
+    <string name="low_battery_alert_title">⚠️ Low Battery Warning (%1$d%%)</string>
+    <string name="low_battery_alert_message">Battery level is low. Connect charger to protect battery health and prevent deep discharge.</string>
+    <string name="notification_channel_prolonged_name">Prolonged Charging Reminders</string>
+    <string name="notification_channel_prolonged_desc">Recurring reminder when device is connected 30 minutes past target charge</string>
+    <string name="notification_channel_low_battery_name">Low Battery Alerts</string>
+    <string name="notification_channel_low_battery_desc">Timely alerts when battery drops to low levels before deep discharge</string>
 </resources>

@@ -19,13 +19,18 @@ import androidx.core.app.NotificationCompat
 import com.example.MainActivity
 import com.example.R
 import com.example.audio.SoundHelper
+import com.example.audio.VoiceAlertManager
+import com.example.data.ChargingSessionTracker
 import com.example.data.preferences.BatteryPreferences
 import com.example.receiver.AlarmDismissReceiver
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.util.Locale
 
@@ -36,8 +41,9 @@ import java.util.Locale
  * - Compatible with Android 14+ (API 34+) Foreground Service execution policies.
  * - Prevents OS process termination and Doze mode deep-sleep dropouts during charging cycles.
  * - Holds a safe, bounded [PowerManager.WakeLock] to guarantee battery threshold detection.
- * - Manages custom target percentage (80% - 100%) longevity alarm triggering with instant dismissal support.
+ * - Manages custom target percentage (75% - 100%) longevity alarm triggering with instant dismissal support.
  * - Monitors battery thermals during charging, firing high-priority heads-up warning and sound if overheating.
+ * - Monitors prolonged connection: recurring gentle reminder after 30 minutes at target.
  * - Self-terminates immediately when the charger is unplugged to preserve battery life.
  */
 class BatteryChargingService : Service() {
@@ -47,6 +53,10 @@ class BatteryChargingService : Service() {
     private var batteryReceiver: BroadcastReceiver? = null
     private var hasAlertedTargetCharge = false
     private var hasAlertedOverheat = false
+
+    @Volatile private var targetReachedTimestamp: Long = 0L
+    @Volatile private var lastProlongedReminderTimestamp: Long = 0L
+    private var prolongedTimerJob: Job? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -89,6 +99,7 @@ class BatteryChargingService : Service() {
         }
 
         registerBatteryMonitor()
+        startProlongedChargingMonitor()
         return START_STICKY
     }
 
@@ -178,21 +189,40 @@ class BatteryChargingService : Service() {
         val tempTenths = intent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, -1)
         val temperatureCelsius = if (tempTenths > 0) tempTenths / 10.0f else 0.0f
 
+        val voltageMv = intent.getIntExtra(BatteryManager.EXTRA_VOLTAGE, 4100)
+        val telemetry = BatteryProtectionManager.calculateChargingPower(
+            context = applicationContext,
+            voltageMilliVolts = voltageMv,
+            batteryPercentage = percentage,
+            isCharging = isCharging
+        )
+        ChargingSessionTracker.getInstance().recordTelemetry(
+            percentage = percentage,
+            wattage = telemetry.watts,
+            temperatureCelsius = temperatureCelsius,
+            isCharging = isCharging
+        )
+
         serviceScope.launch {
             try {
                 val prefs = BatteryPreferences(applicationContext)
 
-                // 1. Check Custom Target Battery Percentage (80% - 100%)
-                val isFullChargeAlertEnabled = prefs.isFullChargeAlertEnabled.first()
-                val targetPercentage = prefs.targetChargePercentage.first()
+                // 1. Check Custom Target Battery Percentage (75% - 100%) with Protection Cap
+                val isProtectionCapEnabled = prefs.isProtectionCapEnabled.first()
+                val chargeLimitTarget = prefs.chargeLimitTarget.first()
 
-                if (isFullChargeAlertEnabled && BatteryProtectionManager.isTargetReached(percentage, targetPercentage)) {
+                if (isProtectionCapEnabled && BatteryProtectionManager.isTargetReached(percentage, chargeLimitTarget)) {
                     if (!hasAlertedTargetCharge) {
                         hasAlertedTargetCharge = true
-                        triggerTargetChargeAlert(targetPercentage)
+                        if (targetReachedTimestamp == 0L) {
+                            targetReachedTimestamp = System.currentTimeMillis()
+                        }
+                        triggerTargetChargeAlert(chargeLimitTarget)
                     }
-                } else if (percentage < targetPercentage) {
+                } else if (percentage < chargeLimitTarget) {
                     hasAlertedTargetCharge = false
+                    targetReachedTimestamp = 0L
+                    lastProlongedReminderTimestamp = 0L
                 }
 
                 // 2. Check High Temperature / Overheat Threshold (e.g. 40°C, 42°C, 45°C)
@@ -214,6 +244,58 @@ class BatteryChargingService : Service() {
         }
     }
 
+    private fun startProlongedChargingMonitor() {
+        prolongedTimerJob?.cancel()
+        prolongedTimerJob = serviceScope.launch {
+            while (isActive) {
+                delay(30_000L) // Poll every 30 seconds
+                try {
+                    checkProlongedCharging()
+                } catch (e: Exception) {
+                    Log.w(TAG, "Error in checkProlongedCharging", e)
+                }
+            }
+        }
+    }
+
+    private suspend fun checkProlongedCharging() {
+        val targetTime = targetReachedTimestamp
+        if (targetTime > 0L) {
+            val now = System.currentTimeMillis()
+            val elapsedSinceTarget = now - targetTime
+            if (elapsedSinceTarget >= PROLONGED_CHARGING_INTERVAL_MS) {
+                val elapsedSinceLastReminder = now - lastProlongedReminderTimestamp
+                if (lastProlongedReminderTimestamp == 0L || elapsedSinceLastReminder >= PROLONGED_CHARGING_INTERVAL_MS) {
+                    val prefs = BatteryPreferences(applicationContext)
+                    val isOvernightTimerEnabled = prefs.isOvernightTimerAlertEnabled.first()
+                    if (isOvernightTimerEnabled) {
+                        lastProlongedReminderTimestamp = now
+                        val target = prefs.chargeLimitTarget.first()
+                        triggerProlongedChargingReminder(target)
+                    }
+                }
+            }
+        }
+    }
+
+    private fun triggerProlongedChargingReminder(targetPercentage: Int) {
+        serviceScope.launch {
+            try {
+                // Play gentle recurring chime via SoundHelper
+                SoundHelper.getInstance(applicationContext).playGentleReminderChime()
+
+                // Voice announcement
+                VoiceAlertManager.getInstance(applicationContext).announceProlongedCharging(targetPercentage)
+
+                // Post high-priority heads-up reminder notification
+                postProlongedChargingHeadsUpNotification(targetPercentage)
+                Log.i(TAG, "Prolonged charging reminder triggered for target $targetPercentage%")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error executing prolonged charging reminder in service", e)
+            }
+        }
+    }
+
     private fun triggerTargetChargeAlert(targetPercentage: Int) {
         serviceScope.launch {
             try {
@@ -223,6 +305,13 @@ class BatteryChargingService : Service() {
 
                 // Play continuous looping target charge alarm
                 SoundHelper.getInstance(applicationContext).startFullChargeAlarm(fullChargeUri)
+
+                // Voice announcement
+                if (targetPercentage >= 100) {
+                    VoiceAlertManager.getInstance(applicationContext).announceFullCharge()
+                } else {
+                    VoiceAlertManager.getInstance(applicationContext).announceTargetReached(targetPercentage)
+                }
 
                 // Show high-priority heads-up notification with Dismiss action
                 postTargetChargeHeadsUpNotification(targetPercentage)
@@ -238,6 +327,9 @@ class BatteryChargingService : Service() {
             try {
                 // Play distinct warning sound
                 SoundHelper.getInstance(applicationContext).startOverheatAlarm()
+
+                // Voice announcement
+                VoiceAlertManager.getInstance(applicationContext).announceOverheat(temperatureCelsius)
 
                 // Show high-priority heads-up thermal warning notification
                 postOverheatHeadsUpNotification(temperatureCelsius, threshold)
@@ -273,13 +365,9 @@ class BatteryChargingService : Service() {
         val title = if (targetPercentage >= 100) {
             "Battery Fully Charged (100%)"
         } else {
-            "Target Charge Limit Reached ($targetPercentage%)"
+            "Target Charge Reached ($targetPercentage%)"
         }
-        val content = if (targetPercentage >= 100) {
-            "Your battery has reached 100%. Unplug charger to preserve battery health."
-        } else {
-            "Battery reached your longevity target of $targetPercentage%. Unplug charger to extend lifespan."
-        }
+        val content = "Target Charge Reached: Unplug to protect battery"
 
         val notification = NotificationCompat.Builder(this, ALARM_CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
@@ -296,6 +384,47 @@ class BatteryChargingService : Service() {
             .build()
 
         notificationManager.notify(FULL_CHARGE_NOTIFICATION_ID, notification)
+    }
+
+    private fun postProlongedChargingHeadsUpNotification(targetPercentage: Int) {
+        val notificationManager =
+            getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+        val contentIntent = PendingIntent.getActivity(
+            this,
+            3,
+            Intent(this, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val dismissIntent = PendingIntent.getBroadcast(
+            this,
+            4,
+            Intent(this, AlarmDismissReceiver::class.java).apply {
+                action = AlarmDismissReceiver.ACTION_DISMISS_ALARM
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val title = getString(R.string.prolonged_charging_title)
+        val content = getString(R.string.prolonged_charging_message, targetPercentage)
+
+        val notification = NotificationCompat.Builder(this, PROLONGED_CHARGING_CHANNEL_ID)
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentTitle(title)
+            .setContentText(content)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_REMINDER)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setAutoCancel(true)
+            .setContentIntent(contentIntent)
+            .addAction(R.mipmap.ic_launcher, getString(R.string.alarm_action_dismiss), dismissIntent)
+            .setDeleteIntent(dismissIntent)
+            .build()
+
+        notificationManager.notify(PROLONGED_CHARGING_NOTIFICATION_ID, notification)
     }
 
     private fun postOverheatHeadsUpNotification(temperatureCelsius: Float, threshold: Float) {
@@ -398,10 +527,37 @@ class BatteryChargingService : Service() {
                 setShowBadge(true)
             }
             notificationManager.createNotificationChannel(overheatChannel)
+
+            // 4. High-priority heads-up channel for Prolonged Charging reminder
+            val prolongedChannel = NotificationChannel(
+                PROLONGED_CHARGING_CHANNEL_ID,
+                getString(R.string.notification_channel_prolonged_name),
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = getString(R.string.notification_channel_prolonged_desc)
+                enableVibration(true)
+                setShowBadge(true)
+            }
+            notificationManager.createNotificationChannel(prolongedChannel)
         }
     }
 
     private fun stopMonitoringAndSelf() {
+        prolongedTimerJob?.cancel()
+        prolongedTimerJob = null
+        targetReachedTimestamp = 0L
+        lastProlongedReminderTimestamp = 0L
+
+        try {
+            val notificationManager =
+                getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.cancel(FULL_CHARGE_NOTIFICATION_ID)
+            notificationManager.cancel(OVERHEAT_NOTIFICATION_ID)
+            notificationManager.cancel(PROLONGED_CHARGING_NOTIFICATION_ID)
+        } catch (e: Exception) {
+            Log.w(TAG, "Error cancelling notifications in stopMonitoringAndSelf", e)
+        }
+
         try {
             if (batteryReceiver != null) {
                 unregisterReceiver(batteryReceiver)
@@ -432,10 +588,15 @@ class BatteryChargingService : Service() {
         const val SERVICE_CHANNEL_ID = "voltpulse_charging_service_channel"
         const val ALARM_CHANNEL_ID = "voltpulse_full_charge_alarm_channel"
         const val OVERHEAT_CHANNEL_ID = "voltpulse_overheat_alarm_channel"
+        const val PROLONGED_CHARGING_CHANNEL_ID = "voltpulse_prolonged_charging_channel"
 
         const val FOREGROUND_NOTIFICATION_ID = 1001
         const val FULL_CHARGE_NOTIFICATION_ID = 2001
         const val OVERHEAT_NOTIFICATION_ID = 2002
+        const val PROLONGED_CHARGING_NOTIFICATION_ID = 2003
+
+        // 30-minute interval for prolonged charging reminder after reaching target
+        const val PROLONGED_CHARGING_INTERVAL_MS = 30 * 60 * 1000L
 
         fun startService(context: Context) {
             val intent = Intent(context, BatteryChargingService::class.java).apply {

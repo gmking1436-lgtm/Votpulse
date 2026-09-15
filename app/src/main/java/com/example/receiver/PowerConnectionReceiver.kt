@@ -30,7 +30,11 @@ class PowerConnectionReceiver : BroadcastReceiver() {
         val action = intent.action ?: return
         Log.d(TAG, "Power connection state event received: $action")
 
-        val pendingResult = goAsync()
+        val pendingResult = try {
+            goAsync()
+        } catch (e: Exception) {
+            null
+        }
         val prefs = VoltPulsePreferences(context)
 
         CoroutineScope(Dispatchers.IO).launch {
@@ -91,7 +95,11 @@ class PowerConnectionReceiver : BroadcastReceiver() {
             } catch (e: Exception) {
                 Log.e(TAG, "Error handling power connection event", e)
             } finally {
-                pendingResult.finish()
+                try {
+                    pendingResult?.finish()
+                } catch (e: Exception) {
+                    Log.w(TAG, "Error finishing pendingResult", e)
+                }
             }
         }
     }

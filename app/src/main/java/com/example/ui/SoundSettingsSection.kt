@@ -30,7 +30,9 @@ import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Power
 import androidx.compose.material.icons.filled.PowerOff
+import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -43,6 +45,8 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import com.example.ui.touch.InstantHapticType
+import com.example.ui.touch.instantTap
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -88,6 +92,9 @@ fun SoundSettingsSection(
     onFullChargeEnabledChange: (Boolean) -> Unit,
     fullChargeUri: String?,
     onFullChargeUriSelected: (Uri?) -> Unit,
+    isVoiceAnnouncementEnabled: Boolean = false,
+    onVoiceAnnouncementEnabledChange: (Boolean) -> Unit = {},
+    onTestVoiceAnnouncement: () -> Unit = {},
     currentPlayingPreview: PreviewTarget,
     onTogglePreview: (PreviewTarget, String?) -> Unit,
     onStopPreview: () -> Unit,
@@ -179,6 +186,125 @@ fun SoundSettingsSection(
             },
             testTagPrefix = "full_charge_sound"
         )
+
+        // 4. Dynamic Voice Announcements (Text-to-Speech)
+        VoiceAnnouncementCard(
+            enabled = isVoiceAnnouncementEnabled,
+            onEnabledChange = onVoiceAnnouncementEnabledChange,
+            onTestSpeech = onTestVoiceAnnouncement
+        )
+    }
+}
+
+@Composable
+private fun VoiceAnnouncementCard(
+    enabled: Boolean,
+    onEnabledChange: (Boolean) -> Unit,
+    onTestSpeech: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("voice_announcement_card"),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        ),
+        border = CardDefaults.outlinedCardBorder().copy(
+            brush = SolidColor(
+                if (enabled) Color(0xFF00E5FF).copy(alpha = 0.4f)
+                else MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+            )
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFF00E5FF).copy(alpha = if (enabled) 0.15f else 0.06f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.RecordVoiceOver,
+                        contentDescription = "Voice Announcements",
+                        tint = if (enabled) Color(0xFF00E5FF) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(14.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Voice Announcements",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "Speaks battery percentage & live wattage aloud on connect, disconnect, and full charge.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        lineHeight = 16.sp
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                Switch(
+                    checked = enabled,
+                    onCheckedChange = onEnabledChange,
+                    modifier = Modifier.testTag("voice_announcement_switch"),
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                        checkedTrackColor = Color(0xFF00E5FF)
+                    )
+                )
+            }
+
+            AnimatedVisibility(
+                visible = enabled,
+                enter = fadeIn() + expandVertically(),
+                exit = fadeOut() + shrinkVertically()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 4.dp),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    FilledTonalButton(
+                        onClick = onTestSpeech,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .testTag("test_voice_announcement_button")
+                            .instantTap(InstantHapticType.CLICK) { onTestSpeech() }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.VolumeUp,
+                            contentDescription = "Test Speech",
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Test Voice Announcement",
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 

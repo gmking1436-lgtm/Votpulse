@@ -1,6 +1,6 @@
 {
   "name": "VoltPulse",
-  "description": "Battery-optimized pulse monitor and full-charge alarm manager with real-time telemetry",
+  "description": "Battery-optimized pulse monitor and full-charge alarm manager with real-time telemetry, Material 3 Glance widget, and charging curve analytics",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

@@ -74,7 +74,7 @@ enum class AppThemeMode(
 
     companion object {
         fun fromId(id: String?): AppThemeMode {
-            return entries.find { it.id.equals(id, ignoreCase = true) } ?: AMOLED_PITCH_BLACK
+            return entries.find { it.id.equals(id, ignoreCase = true) } ?: DYNAMIC_MATERIAL_YOU
         }
     }
 }
@@ -82,7 +82,7 @@ enum class AppThemeMode(
 /**
  * CompositionLocal providing active [AppThemeMode] throughout the Compose hierarchy.
  */
-val LocalAppThemeMode = compositionLocalOf { AppThemeMode.AMOLED_PITCH_BLACK }
+val LocalAppThemeMode = compositionLocalOf { AppThemeMode.DYNAMIC_MATERIAL_YOU }
 
 private val Context.themePreferencesDataStore: DataStore<Preferences> by preferencesDataStore(
     name = "voltpulse_theme_preferences"
@@ -108,7 +108,7 @@ class ThemeManager(private val context: Context) {
     }
 
     /**
-     * Flow emitting the currently selected [AppThemeMode]. Defaults to [AppThemeMode.AMOLED_PITCH_BLACK].
+     * Flow emitting the currently selected [AppThemeMode]. Defaults to [AppThemeMode.DYNAMIC_MATERIAL_YOU].
      */
     val themeModeFlow: Flow<AppThemeMode> = context.themePreferencesDataStore.data
         .catch { exception ->

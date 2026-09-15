@@ -62,10 +62,10 @@ object BatteryProtectionManager {
      * Evaluates whether the battery has reached or exceeded the user's longevity threshold.
      *
      * @param currentPercentage Current battery charge level (0 - 100).
-     * @param targetPercentage Configured user alarm limit (80 - 100).
+     * @param targetPercentage Configured user alarm limit (75 - 100).
      */
     fun isTargetReached(currentPercentage: Int, targetPercentage: Int): Boolean {
-        val clampedTarget = targetPercentage.coerceIn(80, 100)
+        val clampedTarget = targetPercentage.coerceIn(75, 100)
         return currentPercentage >= clampedTarget
     }
 

@@ -18,8 +18,11 @@ import androidx.core.content.ContextCompat
 import com.example.MainActivity
 import com.example.R
 import com.example.audio.SoundHelper
+import com.example.audio.VoiceAlertManager
+import com.example.data.ChargingSessionTracker
 import com.example.data.preferences.BatteryPreferences
 import com.example.service.BatteryChargingService
+import com.example.widget.BatteryGlanceWidget
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -107,7 +110,11 @@ class BatteryTriggerReceiver : BroadcastReceiver() {
     // ========================================================================
 
     private fun handlePowerConnected(appContext: Context) {
-        val pendingResult = goAsync()
+        val pendingResult = try {
+            goAsync()
+        } catch (e: Exception) {
+            null
+        }
         receiverScope.launch {
             try {
                 resetAlarmState()
@@ -121,19 +128,37 @@ class BatteryTriggerReceiver : BroadcastReceiver() {
                     SoundHelper.getInstance(appContext).playPluggedSound(pluggedUri)
                 }
 
-                // 2. Start BatteryChargingService using ContextCompat.startForegroundService()
+                // 2. Dynamic Voice Announcement (Text-to-Speech)
+                val batteryStatus = BatteryGlanceWidget.readBatterySnapshot(appContext)
+                VoiceAlertManager.getInstance(appContext).announcePluggedIn(batteryStatus.percentage, batteryStatus.wattage)
+
+                // 3. Refresh Home Screen Glance Widget
+                BatteryGlanceWidget.updateAllWidgets(appContext)
+
+                // 4. Initialize charging curve telemetry session
+                ChargingSessionTracker.getInstance().startNewSession(
+                    batteryStatus.percentage,
+                    batteryStatus.wattage,
+                    batteryStatus.temperatureCelsius
+                )
+
+                // 5. Start BatteryChargingService using ContextCompat.startForegroundService()
                 val serviceIntent = Intent(appContext, BatteryChargingService::class.java).apply {
                     action = BatteryChargingService.ACTION_START_SERVICE
                 }
                 ContextCompat.startForegroundService(appContext, serviceIntent)
 
-                // 3. Register temporary dynamic battery receiver to monitor level up to 100%
+                // 6. Register temporary dynamic battery receiver to monitor level up to 100%
                 registerDynamicBatteryReceiver(appContext)
 
             } catch (e: Exception) {
                 Log.e(TAG, "Error processing ACTION_POWER_CONNECTED", e)
             } finally {
-                pendingResult.finish()
+                try {
+                    pendingResult?.finish()
+                } catch (e: Exception) {
+                    Log.w(TAG, "Error finishing pendingResult", e)
+                }
             }
         }
     }
@@ -143,7 +168,11 @@ class BatteryTriggerReceiver : BroadcastReceiver() {
     // ========================================================================
 
     private fun handlePowerDisconnected(appContext: Context) {
-        val pendingResult = goAsync()
+        val pendingResult = try {
+            goAsync()
+        } catch (e: Exception) {
+            null
+        }
         receiverScope.launch {
             try {
                 // 1. Crucial: Stop BatteryChargingService immediately by sending Intent / stopService
@@ -173,10 +202,21 @@ class BatteryTriggerReceiver : BroadcastReceiver() {
                     SoundHelper.getInstance(appContext).playUnpluggedSound(unpluggedUri)
                 }
 
+                // 6. Dynamic Voice Announcement (Text-to-Speech)
+                val batteryStatus = BatteryGlanceWidget.readBatterySnapshot(appContext)
+                VoiceAlertManager.getInstance(appContext).announceUnplugged(batteryStatus.percentage)
+
+                // 7. Refresh Home Screen Glance Widget
+                BatteryGlanceWidget.updateAllWidgets(appContext)
+
             } catch (e: Exception) {
                 Log.e(TAG, "Error processing ACTION_POWER_DISCONNECTED", e)
             } finally {
-                pendingResult.finish()
+                try {
+                    pendingResult?.finish()
+                } catch (e: Exception) {
+                    Log.w(TAG, "Error finishing pendingResult", e)
+                }
             }
         }
     }
