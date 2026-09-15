@@ -119,18 +119,27 @@ class BatteryTriggerReceiver : BroadcastReceiver() {
             try {
                 resetAlarmState()
 
-                // 1. Read preferences and immediately play connected sound via SoundHelper
+                // 1. Read preferences and snapshot
                 val prefs = BatteryPreferences(appContext)
                 val isPluggedEnabled = prefs.isPluggedAlertEnabled.first()
+                val sharedPrefs = appContext.getSharedPreferences("voltpulse_audio_prefs", Context.MODE_PRIVATE)
+                val alertMode = sharedPrefs.getString("alert_mode", "BOTH") ?: "BOTH"
                 val pluggedUri = prefs.pluggedSoundUri.first()
+                val batteryStatus = BatteryGlanceWidget.readBatterySnapshot(appContext)
 
                 if (isPluggedEnabled) {
-                    SoundHelper.getInstance(appContext).playPluggedSound(pluggedUri)
-                }
+                    if (alertMode == "SOUND" || alertMode == "BOTH") {
+                        SoundHelper.getInstance(appContext).playPluggedSound(pluggedUri)
+                    }
 
-                // 2. Dynamic Voice Announcement (Text-to-Speech)
-                val batteryStatus = BatteryGlanceWidget.readBatterySnapshot(appContext)
-                VoiceAlertManager.getInstance(appContext).announcePluggedIn(batteryStatus.percentage, batteryStatus.wattage)
+                    // 2. Dynamic Voice Announcement (Text-to-Speech)
+                    if (alertMode == "VOICE" || alertMode == "BOTH") {
+                        if (alertMode == "BOTH") {
+                            kotlinx.coroutines.delay(1500)
+                        }
+                        VoiceAlertManager.getInstance(appContext).announcePluggedIn(batteryStatus.percentage, batteryStatus.wattage)
+                    }
+                }
 
                 // 3. Refresh Home Screen Glance Widget
                 BatteryGlanceWidget.updateAllWidgets(appContext)
@@ -196,15 +205,24 @@ class BatteryTriggerReceiver : BroadcastReceiver() {
                 // 5. Read preferences and immediately play disconnected sound via SoundHelper
                 val prefs = BatteryPreferences(appContext)
                 val isUnpluggedEnabled = prefs.isUnpluggedAlertEnabled.first()
+                val sharedPrefs = appContext.getSharedPreferences("voltpulse_audio_prefs", Context.MODE_PRIVATE)
+                val alertMode = sharedPrefs.getString("alert_mode", "BOTH") ?: "BOTH"
                 val unpluggedUri = prefs.unpluggedSoundUri.first()
 
                 if (isUnpluggedEnabled) {
-                    SoundHelper.getInstance(appContext).playUnpluggedSound(unpluggedUri)
-                }
+                    if (alertMode == "SOUND" || alertMode == "BOTH") {
+                        SoundHelper.getInstance(appContext).playUnpluggedSound(unpluggedUri)
+                    }
 
-                // 6. Dynamic Voice Announcement (Text-to-Speech)
-                val batteryStatus = BatteryGlanceWidget.readBatterySnapshot(appContext)
-                VoiceAlertManager.getInstance(appContext).announceUnplugged(batteryStatus.percentage)
+                    // 6. Dynamic Voice Announcement (Text-to-Speech)
+                    val batteryStatus = BatteryGlanceWidget.readBatterySnapshot(appContext)
+                    if (alertMode == "VOICE" || alertMode == "BOTH") {
+                        if (alertMode == "BOTH") {
+                            kotlinx.coroutines.delay(1500)
+                        }
+                        VoiceAlertManager.getInstance(appContext).announceUnplugged(batteryStatus.percentage)
+                    }
+                }
 
                 // 7. Refresh Home Screen Glance Widget
                 BatteryGlanceWidget.updateAllWidgets(appContext)
@@ -319,7 +337,20 @@ class BatteryTriggerReceiver : BroadcastReceiver() {
 
                 // 2. Play continuous looping alarm via SoundHelper
                 val soundUri = prefs.fullChargeSoundUri.first()
-                SoundHelper.getInstance(appContext).startFullChargeAlarm(soundUri)
+                val sharedPrefs = appContext.getSharedPreferences("voltpulse_audio_prefs", Context.MODE_PRIVATE)
+                val alertMode = sharedPrefs.getString("alert_mode", "BOTH") ?: "BOTH"
+                
+                if (alertMode == "SOUND" || alertMode == "BOTH") {
+                    SoundHelper.getInstance(appContext).startFullChargeAlarm(soundUri)
+                }
+
+                // 2.5 Dynamic Voice Announcement for Full Charge
+                if (alertMode == "VOICE" || alertMode == "BOTH") {
+                    if (alertMode == "BOTH") {
+                        kotlinx.coroutines.delay(1500)
+                    }
+                    VoiceAlertManager.getInstance(appContext).announceFullCharge()
+                }
 
                 // 3. Post high-priority heads-up notification with "DISMISS ALARM" action button
                 postFullChargeNotification(appContext)

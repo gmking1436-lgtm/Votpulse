@@ -38,7 +38,6 @@ import androidx.compose.material.icons.filled.ElectricMeter
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.Palette
-import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Thermostat
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -107,7 +106,6 @@ import com.example.ui.theme.VoltRed
 @Composable
 fun BatteryDashboardScreen(
     modifier: Modifier = Modifier,
-    onNavigateToProtection: () -> Unit = {},
     viewModel: BatteryViewModel = viewModel()
 ) {
     val batteryState by viewModel.batteryState.collectAsStateWithLifecycle()
@@ -222,16 +220,6 @@ fun BatteryDashboardScreen(
                     }
                 },
                 actions = {
-                    IconButton(
-                        onClick = onNavigateToProtection,
-                        modifier = Modifier.testTag("protection_suite_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Shield,
-                            contentDescription = "Battery Protection Suite",
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
                     IconButton(
                         onClick = { showThemeSelector = true },
                         modifier = Modifier.testTag("theme_selector_button")

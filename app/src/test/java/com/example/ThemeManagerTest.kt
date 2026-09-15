@@ -39,9 +39,9 @@ class ThemeManagerTest {
         assertEquals(AppThemeMode.AMOLED_PITCH_BLACK, AppThemeMode.fromId("amoled"))
         assertEquals(AppThemeMode.CYBERPUNK_NEON, AppThemeMode.fromId("cyberpunk"))
         assertEquals(AppThemeMode.MINIMAL_FROSTED_GLASS, AppThemeMode.fromId("frosted_glass"))
-        // Unknown falls back to Dynamic Material You default
-        assertEquals(AppThemeMode.DYNAMIC_MATERIAL_YOU, AppThemeMode.fromId("non_existent_theme"))
-        assertEquals(AppThemeMode.DYNAMIC_MATERIAL_YOU, AppThemeMode.fromId(null))
+        // Unknown falls back to AMOLED Pitch Black
+        assertEquals(AppThemeMode.AMOLED_PITCH_BLACK, AppThemeMode.fromId("non_existent_theme"))
+        assertEquals(AppThemeMode.AMOLED_PITCH_BLACK, AppThemeMode.fromId(null))
     }
 
     @Test

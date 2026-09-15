@@ -7,7 +7,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.Color
@@ -116,31 +115,12 @@ private val StandardMaterialDarkColorScheme: ColorScheme = darkColorScheme(
 )
 
 /**
- * Standard Fallback Material Light ColorScheme for pre-Android 12 devices.
- */
-private val StandardMaterialLightColorScheme: ColorScheme = lightColorScheme(
-    primary = Color(0xFF6750A4),
-    onPrimary = Color.White,
-    primaryContainer = Color(0xFFEADDFF),
-    onPrimaryContainer = Color(0xFF21005D),
-    secondary = Color(0xFF625B71),
-    onSecondary = Color.White,
-    background = Color(0xFFFFFBFE),
-    onBackground = Color(0xFF1C1B1F),
-    surface = Color(0xFFFFFBFE),
-    onSurface = Color(0xFF1C1B1F),
-    surfaceVariant = Color(0xFFE7E0EC),
-    onSurfaceVariant = Color(0xFF49454F),
-    outline = Color(0xFF79747E)
-)
-
-/**
  * Main application theme provider supporting the 4 distinct visual themes.
  */
 @Composable
 fun VoltPulseTheme(
-    themeMode: AppThemeMode = AppThemeMode.DYNAMIC_MATERIAL_YOU,
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    themeMode: AppThemeMode = AppThemeMode.AMOLED_PITCH_BLACK,
+    darkTheme: Boolean = true,
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
@@ -156,7 +136,7 @@ fun VoltPulseTheme(
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
             } else {
-                if (darkTheme) StandardMaterialDarkColorScheme else StandardMaterialLightColorScheme
+                StandardMaterialDarkColorScheme
             }
         }
         AppThemeMode.AMOLED_PITCH_BLACK -> AmoledDarkColorScheme
@@ -181,11 +161,11 @@ fun VoltPulseTheme(
 @Composable
 fun MyApplicationTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = true,
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
     VoltPulseTheme(
-        themeMode = AppThemeMode.DYNAMIC_MATERIAL_YOU,
+        themeMode = if (dynamicColor) AppThemeMode.DYNAMIC_MATERIAL_YOU else AppThemeMode.AMOLED_PITCH_BLACK,
         darkTheme = darkTheme,
         dynamicColor = dynamicColor,
         content = content

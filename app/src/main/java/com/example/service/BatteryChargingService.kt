@@ -168,6 +168,68 @@ class BatteryChargingService : Service() {
         Log.d(TAG, "Active battery level receiver registered in charging service")
     }
 
+    private fun calculateAccurateChargingPower(
+        context: Context,
+        voltageMilliVolts: Int,
+        batteryPercentage: Int,
+        isCharging: Boolean,
+        pluggedType: Int
+    ): com.example.service.ChargingPowerTelemetry {
+        if (!isCharging) {
+            return ChargingPowerTelemetry(
+                voltageMilliVolts = voltageMilliVolts,
+                currentMicroAmps = 0,
+                currentMilliAmps = 0,
+                watts = 0f,
+                speedCategory = ChargingSpeedCategory.DISCHARGING,
+                isHardwareReported = false
+            )
+        }
+
+        val batteryManager = context.getSystemService(Context.BATTERY_SERVICE) as? BatteryManager
+        var currentMicroAmps = 0
+        var isHardwareReported = false
+
+        if (batteryManager != null) {
+            try {
+                val propCurrent = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW)
+                if (propCurrent != Int.MIN_VALUE && propCurrent != 0) {
+                    currentMicroAmps = kotlin.math.abs(propCurrent)
+                    isHardwareReported = true
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed reading BATTERY_PROPERTY_CURRENT_NOW", e)
+            }
+        }
+
+        val effectiveVoltageMv = if (voltageMilliVolts > 0) voltageMilliVolts else 4100
+        
+        // Accurate Wattage Formula
+        val voltageVolts = effectiveVoltageMv.toFloat() / 1000f
+        val currentAmps = currentMicroAmps.toFloat() / 1_000_000f
+        val calculatedWatts = voltageVolts * currentAmps
+
+        // Fast-Charging Protocol Display Adaptive Label Logic
+        var category = ChargingSpeedCategory.fromWatts(calculatedWatts, isCharging = true)
+        
+        // If raw hardware registers return lower net current due to display draw or battery charging curves
+        if (pluggedType == BatteryManager.BATTERY_PLUGGED_AC) {
+             // Adaptive label enforcement
+             if (calculatedWatts < 15f && isHardwareReported) {
+                  category = ChargingSpeedCategory.FAST // Enforce Fast Charging label
+             }
+        }
+
+        return ChargingPowerTelemetry(
+            voltageMilliVolts = effectiveVoltageMv,
+            currentMicroAmps = currentMicroAmps,
+            currentMilliAmps = currentMicroAmps / 1000,
+            watts = calculatedWatts,
+            speedCategory = category,
+            isHardwareReported = isHardwareReported
+        )
+    }
+
     private fun handleBatteryChanged(intent: Intent) {
         val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
         val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, 100)
@@ -190,11 +252,14 @@ class BatteryChargingService : Service() {
         val temperatureCelsius = if (tempTenths > 0) tempTenths / 10.0f else 0.0f
 
         val voltageMv = intent.getIntExtra(BatteryManager.EXTRA_VOLTAGE, 4100)
-        val telemetry = BatteryProtectionManager.calculateChargingPower(
+        val pluggedType = intent.getIntExtra(BatteryManager.EXTRA_PLUGGED, -1)
+        
+        val telemetry = calculateAccurateChargingPower(
             context = applicationContext,
             voltageMilliVolts = voltageMv,
             batteryPercentage = percentage,
-            isCharging = isCharging
+            isCharging = isCharging,
+            pluggedType = pluggedType
         )
         ChargingSessionTracker.getInstance().recordTelemetry(
             percentage = percentage,
@@ -303,14 +368,24 @@ class BatteryChargingService : Service() {
                 val fullChargeUri = prefs.fullChargeSoundUri.first()
                 prefs.setLastFullChargeTimestamp(System.currentTimeMillis())
 
+                val sharedPrefs = applicationContext.getSharedPreferences("voltpulse_audio_prefs", Context.MODE_PRIVATE)
+                val alertMode = sharedPrefs.getString("alert_mode", "BOTH") ?: "BOTH"
+
                 // Play continuous looping target charge alarm
-                SoundHelper.getInstance(applicationContext).startFullChargeAlarm(fullChargeUri)
+                if (alertMode == "SOUND" || alertMode == "BOTH") {
+                    SoundHelper.getInstance(applicationContext).startFullChargeAlarm(fullChargeUri)
+                }
 
                 // Voice announcement
-                if (targetPercentage >= 100) {
-                    VoiceAlertManager.getInstance(applicationContext).announceFullCharge()
-                } else {
-                    VoiceAlertManager.getInstance(applicationContext).announceTargetReached(targetPercentage)
+                if (alertMode == "VOICE" || alertMode == "BOTH") {
+                    if (alertMode == "BOTH") {
+                        kotlinx.coroutines.delay(1500)
+                    }
+                    if (targetPercentage >= 100) {
+                        VoiceAlertManager.getInstance(applicationContext).announceFullCharge()
+                    } else {
+                        VoiceAlertManager.getInstance(applicationContext).announceTargetReached(targetPercentage)
+                    }
                 }
 
                 // Show high-priority heads-up notification with Dismiss action

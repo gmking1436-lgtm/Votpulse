@@ -515,9 +515,9 @@ class SoundHelper(context: Context) {
 
     private fun requestAlarmAudioFocus(attributes: AudioAttributes): Boolean {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val request = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE)
+            val request = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
                 .setAudioAttributes(attributes)
-                .setAcceptsDelayedFocusGain(false)
+                .setAcceptsDelayedFocusGain(true)
                 .setOnAudioFocusChangeListener(audioFocusChangeListener)
                 .build()
             this.audioFocusRequest = request
@@ -527,7 +527,7 @@ class SoundHelper(context: Context) {
             audioManager.requestAudioFocus(
                 audioFocusChangeListener,
                 AudioManager.STREAM_ALARM,
-                AudioManager.AUDIOFOCUS_GAIN_TRANSIENT
+                AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK
             ) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
         }
     }
@@ -563,6 +563,7 @@ class SoundHelper(context: Context) {
         return RingtoneManager.getDefaultUri(defaultType)
             ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
             ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+            ?: android.provider.Settings.System.DEFAULT_NOTIFICATION_URI
     }
 
     companion object {

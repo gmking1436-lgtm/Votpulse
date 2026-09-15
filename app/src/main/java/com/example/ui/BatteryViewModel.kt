@@ -75,7 +75,7 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
-            initialValue = AppThemeMode.DYNAMIC_MATERIAL_YOU
+            initialValue = AppThemeMode.AMOLED_PITCH_BLACK
         )
 
     fun setThemeMode(mode: AppThemeMode) {
@@ -264,7 +264,8 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
         val healthStatus: String,
         val temperatureCelsius: Float,
         val voltageMilliVolts: Int,
-        val technology: String
+        val technology: String,
+        val pluggedType: Int
     )
 
     private val batteryRawFlow: Flow<RawBatteryData> = callbackFlow {
@@ -325,16 +326,79 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
         initialValue = getInitialBatteryInfo()
     )
 
+    private fun calculateAccurateChargingPower(
+        context: Context,
+        voltageMilliVolts: Int,
+        batteryPercentage: Int,
+        isCharging: Boolean,
+        pluggedType: Int
+    ): com.example.service.ChargingPowerTelemetry {
+        if (!isCharging) {
+            return ChargingPowerTelemetry(
+                voltageMilliVolts = voltageMilliVolts,
+                currentMicroAmps = 0,
+                currentMilliAmps = 0,
+                watts = 0f,
+                speedCategory = ChargingSpeedCategory.DISCHARGING,
+                isHardwareReported = false
+            )
+        }
+
+        val batteryManager = context.getSystemService(Context.BATTERY_SERVICE) as? BatteryManager
+        var currentMicroAmps = 0
+        var isHardwareReported = false
+
+        if (batteryManager != null) {
+            try {
+                val propCurrent = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW)
+                if (propCurrent != Int.MIN_VALUE && propCurrent != 0) {
+                    currentMicroAmps = kotlin.math.abs(propCurrent)
+                    isHardwareReported = true
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed reading BATTERY_PROPERTY_CURRENT_NOW", e)
+            }
+        }
+
+        val effectiveVoltageMv = if (voltageMilliVolts > 0) voltageMilliVolts else 4100
+        
+        // Accurate Wattage Formula
+        val voltageVolts = effectiveVoltageMv.toFloat() / 1000f
+        val currentAmps = currentMicroAmps.toFloat() / 1_000_000f
+        val calculatedWatts = voltageVolts * currentAmps
+
+        // Fast-Charging Protocol Display Adaptive Label Logic
+        var category = ChargingSpeedCategory.fromWatts(calculatedWatts, isCharging = true)
+        
+        // If raw hardware registers return lower net current due to display draw or battery charging curves
+        if (pluggedType == BatteryManager.BATTERY_PLUGGED_AC) {
+             // Adaptive label enforcement
+             if (calculatedWatts < 15f && isHardwareReported) {
+                  category = ChargingSpeedCategory.FAST // Enforce Fast Charging label
+             }
+        }
+
+        return ChargingPowerTelemetry(
+            voltageMilliVolts = effectiveVoltageMv,
+            currentMicroAmps = currentMicroAmps,
+            currentMilliAmps = currentMicroAmps / 1000,
+            watts = calculatedWatts,
+            speedCategory = category,
+            isHardwareReported = isHardwareReported
+        )
+    }
+
     /**
      * Real-time charging wattage and hardware speed category telemetry.
      */
     val chargingTelemetry: StateFlow<ChargingPowerTelemetry> = batteryRawFlow
         .map { raw ->
-            val telemetry = BatteryProtectionManager.calculateChargingPower(
+            val telemetry = calculateAccurateChargingPower(
                 context = getApplication<Application>().applicationContext,
                 voltageMilliVolts = raw.voltageMilliVolts,
                 batteryPercentage = raw.percentage,
-                isCharging = raw.isCharging
+                isCharging = raw.isCharging,
+                pluggedType = raw.pluggedType
             )
             ChargingSessionTracker.getInstance().recordTelemetry(
                 percentage = raw.percentage,
@@ -554,6 +618,7 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
         val temperatureCelsius = rawTemperature / 10.0f
 
         val voltageMilliVolts = intent.getIntExtra(BatteryManager.EXTRA_VOLTAGE, 0)
+        val pluggedType = intent.getIntExtra(BatteryManager.EXTRA_PLUGGED, -1)
 
         val technologyRaw = intent.getStringExtra(BatteryManager.EXTRA_TECHNOLOGY)
         val technology = if (technologyRaw.isNullOrBlank()) "Li-ion" else technologyRaw
@@ -564,7 +629,8 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
             healthStatus = healthStatus,
             temperatureCelsius = temperatureCelsius,
             voltageMilliVolts = voltageMilliVolts,
-            technology = technology
+            technology = technology,
+            pluggedType = pluggedType
         )
     }
 

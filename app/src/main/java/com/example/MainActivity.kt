@@ -32,7 +32,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -43,7 +42,6 @@ import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.ui.BatteryDashboardScreen
-import com.example.ui.BatteryProtectionScreen
 import com.example.ui.touch.LowLatencyWindowEffect
 import com.example.ui.touch.TouchOptimizationHelper
 import com.example.ui.theme.AppThemeMode
@@ -71,7 +69,7 @@ class MainActivity : ComponentActivity() {
             LowLatencyWindowEffect()
             val themeManager = remember { ThemeManager.getInstance(applicationContext) }
             val currentThemeMode by themeManager.themeModeFlow.collectAsStateWithLifecycle(
-                initialValue = AppThemeMode.DYNAMIC_MATERIAL_YOU
+                initialValue = AppThemeMode.AMOLED_PITCH_BLACK
             )
 
             VoltPulseTheme(themeMode = currentThemeMode) {
@@ -175,24 +173,11 @@ class MainActivity : ComponentActivity() {
                     )
                 }
 
-                var currentScreen by rememberSaveable { mutableStateOf("dashboard") }
-
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    when (currentScreen) {
-                        "protection" -> {
-                            BatteryProtectionScreen(
-                                onNavigateBack = { currentScreen = "dashboard" }
-                            )
-                        }
-                        else -> {
-                            BatteryDashboardScreen(
-                                onNavigateToProtection = { currentScreen = "protection" }
-                            )
-                        }
-                    }
+                    BatteryDashboardScreen()
                 }
             }
         }
