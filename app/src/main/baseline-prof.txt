@@ -1,0 +1,44 @@
+# ==============================================================================
+# VoltPulse Baseline Profile Rules for Zero-Jank Touch & High-Rate Sampling
+#
+# Compiled AOT (Ahead-Of-Time) into ART machine code (.odex) upon app installation.
+# Eliminates JIT compilation pauses and class loading lag on critical touch paths.
+# ==============================================================================
+
+# Critical Touch Optimization Engine
+HSPLcom/example/ui/touch/TouchOptimizationHelper;->configureLowLatencyWindow(Landroid/view/Window;)V
+HSPLcom/example/ui/touch/TouchOptimizationHelper;->performInstantHaptic(Landroid/view/View;Lcom/example/ui/touch/InstantHapticType;)V
+HSPLcom/example/ui/touch/TouchOptimizationHelperKt;->instantTap(Landroidx/compose/ui/Modifier;Lcom/example/ui/touch/InstantHapticType;ZLkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function0;)Landroidx/compose/ui/Modifier;
+HSPLcom/example/ui/touch/TouchOptimizationHelperKt;->deferredOffset(Landroidx/compose/ui/Modifier;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function0;)Landroidx/compose/ui/Modifier;
+HSPLcom/example/ui/touch/TouchOptimizationHelperKt;->deferredScale(Landroidx/compose/ui/Modifier;Lkotlin/jvm/functions/Function0;)Landroidx/compose/ui/Modifier;
+HSPLcom/example/ui/touch/LowLatencyWindowEffectKt;->LowLatencyWindowEffect(Landroidx/compose/runtime/Composer;I)V
+
+# Zero-Jank Interactive Components (Slider, Switch, Protection Card)
+HSPLcom/example/ui/components/LowLatencySnapSliderKt;->LowLatencySnapSlider(ILkotlin/jvm/functions/Function1;Landroidx/compose/ui/Modifier;IIIJJJLjava/lang/String;Landroidx/compose/runtime/Composer;II)V
+HSPLcom/example/ui/components/LowLatencySwitchKt;->LowLatencySwitch(ZLkotlin/jvm/functions/Function1;Landroidx/compose/ui/Modifier;JJJJLjava/lang/String;Landroidx/compose/runtime/Composer;II)V
+HSPLcom/example/ui/components/ProtectionSettingsCardKt;->ProtectionSettingsCard(ILkotlin/jvm/functions/Function1;ZLkotlin/jvm/functions/Function1;FLkotlin/jvm/functions/Function1;FLcom/example/service/ChargingPowerTelemetry;Ljava/lang/String;Landroidx/compose/ui/Modifier;Landroidx/compose/runtime/Composer;II)V
+HSPLcom/example/ui/components/ThemeSelectorDialogKt;->ThemeSelectorBottomSheet(Lcom/example/ui/theme/AppThemeMode;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function0;Landroidx/compose/ui/Modifier;Landroidx/compose/material3/SheetState;Landroidx/compose/runtime/Composer;II)V
+HSPLcom/example/ui/components/ThemeSelectorDialogKt;->ThemeCardItem(Lcom/example/ui/theme/AppThemeMode;ZLkotlin/jvm/functions/Function0;Landroidx/compose/runtime/Composer;I)V
+
+# Hardware-Accelerated Battery Gauge & Dynamic Refresh Rate Manager
+HSPLcom/example/ui/components/LiquidWaveBatteryGaugeKt;->LiquidWaveBatteryGauge(IZFLjava/lang/String;ZZLandroidx/compose/ui/Modifier;Landroidx/compose/runtime/Composer;II)V
+HSPLcom/example/display/DisplayRefreshRateManager;->requestMode(Landroid/view/Window;Lcom/example/display/RefreshRateMode;)V
+HSPLcom/example/display/DisplayRefreshRateManager;->computeEffectiveFps(Lcom/example/display/RefreshRateMode;)F
+HSPLcom/example/display/DynamicDisplayRefreshEffectKt;->DynamicDisplayRefreshEffect(ZZZIZLcom/example/display/DynamicRefreshRateState;Landroidx/compose/runtime/Composer;II)V
+HSPLcom/example/display/DynamicDisplayRefreshEffectKt;->trackUserInteraction(Landroidx/compose/ui/Modifier;Lkotlin/jvm/functions/Function0;)Landroidx/compose/ui/Modifier;
+
+# Dashboard & Core View Composables
+HSPLcom/example/ui/BatteryDashboardScreenKt;->BatteryDashboardScreen(Lcom/example/ui/BatteryViewModel;Landroidx/compose/ui/Modifier;Landroidx/compose/runtime/Composer;II)V
+HSPLcom/example/MainActivity;->onCreate(Landroid/os/Bundle;)V
+
+# Compose Foundation Pointer Input & Gesture Dispatch
+HSPLandroidx/compose/foundation/gestures/TapGestureDetectorKt;->awaitFirstDown(Landroidx/compose/ui/input/pointer/AwaitPointerEventScope;ZLandroidx/compose/ui/input/pointer/PointerEventPass;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+HSPLandroidx/compose/foundation/gestures/TapGestureDetectorKt;->waitForUpOrCancellation(Landroidx/compose/ui/input/pointer/AwaitPointerEventScope;Landroidx/compose/ui/input/pointer/PointerEventPass;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+HSPLandroidx/compose/foundation/gestures/ForEachGestureKt;->awaitEachGesture(Landroidx/compose/ui/input/pointer/PointerInputScope;Lkotlin/jvm/functions/Function2;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+HSPLandroidx/compose/ui/input/pointer/PointerInputChange;->consume()V
+HSPLandroidx/compose/ui/input/pointer/PointerInputChange;->getPosition()J
+
+# Compose Graphics Layer & Hardware Draw Node
+HSPLandroidx/compose/ui/graphics/GraphicsLayerModifierKt;->graphicsLayer(Landroidx/compose/ui/Modifier;Lkotlin/jvm/functions/Function1;)Landroidx/compose/ui/Modifier;
+HSPLandroidx/compose/ui/node/NodeCoordinator;->draw(Landroidx/compose/ui/graphics/Canvas;)V
+HSPLandroidx/compose/animation/core/Animatable;->animateTo(Ljava/lang/Object;Landroidx/compose/animation/core/AnimationSpec;Ljava/lang/Object;Lkotlin/jvm/functions/Function1;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;

@@ -1,0 +1,16 @@
+<resources>
+    <string name="app_name">VoltPulse</string>
+    <string name="notification_channel_alarm_name">VoltPulse Full Charge Alarm</string>
+    <string name="notification_channel_alarm_desc">Continuous alerting when device reaches target charge</string>
+    <string name="notification_channel_power_name">VoltPulse Power Events</string>
+    <string name="notification_channel_power_desc">Power connection and battery level notifications</string>
+    <string name="alarm_action_dismiss">Dismiss Alarm</string>
+    <string name="power_connected_title">Charging Started</string>
+    <string name="power_disconnected_title">Charger Disconnected</string>
+    <string name="full_charge_title">Battery Fully Charged (100%)</string>
+    <string name="full_charge_message">Unplug your device to preserve battery longevity!</string>
+    <string name="battery_opt_dialog_title">Enable Reliable Background Triggers</string>
+    <string name="battery_opt_dialog_desc">VoltPulse requires exemption from Android Battery Optimization to reliably trigger connected/disconnected tones and the 100% alarm while the screen is off or in Doze mode.</string>
+    <string name="battery_opt_allow">Allow Exemption</string>
+    <string name="battery_opt_later">Later</string>
+</resources>

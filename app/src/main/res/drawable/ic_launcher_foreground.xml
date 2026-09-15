@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Battery outline centered in 66dp safe zone (canvas 108dp, center 54, 54) -->
+    <!-- Top battery terminal cap -->
+    <path
+        android:pathData="M48,27 h12 v4 h-12 z"
+        android:fillColor="#00E5FF" />
+    <!-- Battery body border -->
+    <path
+        android:pathData="M39,31 h30 c3.3,0 6,2.7 6,6 v38 c0,3.3 -2.7,6 -6,6 h-30 c-3.3,0 -6,-2.7 -6,-6 v-38 c0,-3.3 2.7,-6 6,-6 z"
+        android:strokeWidth="3"
+        android:strokeColor="#00E5FF"
+        android:fillColor="#1A00E5FF" />
+    <!-- Electric Pulse Bolt in center -->
+    <path
+        android:pathData="M56,38 L44,53 h8 l-3,17 14,-17 h-8 z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="44"
+                android:startY="38"
+                android:endX="63"
+                android:endY="70"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#00E5FF" />
+                <item android:offset="1.0" android:color="#00E676" />
+            </gradient>
+        </aapt:attr>
+    </path>
+</vector>
